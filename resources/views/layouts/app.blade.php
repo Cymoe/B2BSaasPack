@@ -36,8 +36,9 @@
             @livewireScripts
             <script>
                 document.addEventListener('livewire:initialized', () => {
-                    Livewire.on('themeChanged', (theme) => {
-                        document.documentElement.setAttribute('data-theme', theme);
+                    Livewire.on('themeChanged', (data) => {
+                        document.documentElement.setAttribute('data-theme', data.theme);
+                        window.dispatchEvent(new CustomEvent('theme-changed', { detail: { emoji: data.emoji } }));
                     });
                 });
             </script>

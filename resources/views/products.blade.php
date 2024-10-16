@@ -1,39 +1,76 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Products') }}
-        </h2>
-    </x-slot>
+   
+    <div class="flex justify-center">
+        <div class="inline-flex items-center bg-base-300 text-base-content mt-10 px-6 py-2 rounded-full shadow-lg animate-sparkle">
+            <span class="font-bold text-sm">✨ Launch discount — $100 OFF ✨</span>
+        </div>
+    </div>
+
+    <style>
+        @keyframes sparkle {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-sparkle {
+            animation: sparkle 2s ease-in-out infinite;
+        }
+        .bg-info-dark {
+            background-color: hsl(var(--in) / 0.8);
+        }
+        .text-info-lighter {
+            color: hsl(var(--inc) / 0.9);
+        }
+    </style>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    @if(session('error'))
-                        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                            <strong class="font-bold">Error!</strong>
-                            <span class="block sm:inline">{{ session('error') }}</span>
-                        </div>
-                    @endif
+        <div class="max-w-6xl mx-auto sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h1 class="text-4xl font-bold mb-4">Powerful plans for every stage of your journey</h1>
+                <p class="text-xl text-gray-600">Join our exclusive test run and secure lifetime access for a one-time fee!</p>
+                <p class="text-xl text-gray-600">Choose the plan that fits your needs</p>
+            </div>
 
-                    @if(isset($products) && count($products) > 0)
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            @foreach($products as $product)
-                                <div class="border rounded-lg p-6 shadow-sm">
-                                    <h3 class="text-lg font-semibold">{{ $product['name'] }}</h3>
-                                    <p class="text-gray-600 mt-2">{{ $product['description'] }}</p>
-                                    <p class="text-xl font-bold mt-4">{{ $product['currency'] }} {{ number_format($product['price'], 2) }}</p>
-                                    <a href="{{ route('checkout', $product['id']) }}" class="mt-4 inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                                        Buy Now
-                                    </a>
-                                    <button class="btn btn-primary">Click me</button>
+            <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-12"> <!-- Added space between cards -->
+                @foreach($products as $product)
+                    <div class="card bg-base-100 shadow-xl {{ $product['is_popular'] ?? false ? 'border-2 border-primary' : '' }} w-full md:w-2/5"> <!-- Reduced width to 2/5 -->
+                        <div class="card-body">
+                            @if($product['is_popular'] ?? false)
+                                <div class="absolute top-0 right-0 mt-4 mr-4">
+                                    <span class="badge badge-primary font-bold">BUSY BUILDER'S CHOICE</span>
                                 </div>
-                            @endforeach
+                            @endif
+                            <div class="flex items-baseline mb-2">
+                                @if(isset($product['original_price']))
+                                    <span class="text-lg line-through text-gray-500 mr-2">${{ number_format($product['original_price'], 0) }}</span>
+                                @endif
+                                <span class="text-5xl font-extrabold">${{ number_format($product['price'], 0) }}</span>
+                                <span class="text-gray-500 ml-2">USD</span>
+                            </div>
+                            
+                            @if(isset($product['features']) && is_array($product['features']))
+                                <ul class="space-y-2 my-4">
+                                    @foreach($product['features'] as $feature)
+                                        <li class="flex items-center">
+                                            <svg class="w-5 h-5 text-success mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                            <span>{{ $feature }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                            
+                            <div class="card-actions mt-4">
+                                <a href="{{ route('checkout', $product['id']) }}" class="btn btn-primary btn-block">
+                                    Get {{ $product['name'] }} 
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </a>
+                            </div>
+                            <p class="text-center text-base font-semibold text-gray-700 mt-2">One-time payment, then <u class="font-bold">it's yours forever</u></p>
                         </div>
-                    @else
-                        <p>No products available at the moment.</p>
-                    @endif
-                </div>
+                    </div>
+                @endforeach
             </div>
         </div>
     </div>

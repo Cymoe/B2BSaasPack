@@ -18,28 +18,38 @@ class StripeController extends Controller
     public function productList()
     {
         try {
-            $prices = Price::all([
+            \Stripe\Stripe::setApiKey(env('STRIPE_SECRET'));
+
+            $prices = \Stripe\Price::all([
                 'active' => true,
                 'type' => 'one_time',
                 'expand' => ['data.product'],
                 'limit' => 100,
             ]);
 
-            $formattedProducts = array_filter(array_map(function ($price) {
-                if ($price->product->active) {
-                    return [
-                        'id' => $price->id,
-                        'name' => $price->product->name,
-                        'description' => $price->product->description,
-                        'price' => $price->unit_amount / 100,
-                        'currency' => strtoupper($price->currency),
-                    ];
+            $products = array_values(array_filter(array_map(function ($price) {
+                $product = $price->product;
+                if (!$product->active) {
+                    return null;
                 }
-                return null;
-            }, $prices->data));
+                return [
+                    'id' => $price->id,
+                    'name' => $product->name,
+                    'price' => $price->unit_amount / 100,
+                    'original_price' => isset($product->metadata['original_price']) ? intval($product->metadata['original_price']) : null,
+                    'features' => isset($product->metadata['features']) ? explode(',', $product->metadata['features']) : [],
+                    'is_popular' => isset($product->metadata['is_popular']) ? filter_var($product->metadata['is_popular'], FILTER_VALIDATE_BOOLEAN) : false,
+                    'order' => isset($product->metadata['order']) ? intval($product->metadata['order']) : 999, // Default to a high number if not set
+                ];
+            }, $prices->data)));
 
-            return view('products', ['products' => array_values($formattedProducts)]);
-        } catch (ApiErrorException $e) {
+            // Sort products based on the 'order' field
+            usort($products, function($a, $b) {
+                return $a['order'] - $b['order'];
+            });
+
+            return view('products', compact('products'));
+        } catch (\Exception $e) {
             \Log::error('Stripe API Error: ' . $e->getMessage());
             return back()->with('error', 'Unable to fetch products. Please try again later.');
         }
