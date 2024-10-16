@@ -26,7 +26,7 @@
     <div class="py-12">
         <div class="max-w-6xl mx-auto sm:px-6 lg:px-8">
             <div class="text-center mb-12">
-                <h1 class="text-4xl font-bold mb-4">Powerful plans for every stage of your journey</h1>
+                <h1 class="text-4xl font-extrabold mb-4 text-primary">Powerful Plans for Every Stage of Your Journey</h1>
                 <p class="text-xl text-gray-600">Join our exclusive test run and secure lifetime access for a one-time fee!</p>
                 <p class="text-xl text-gray-600">Choose the plan that fits your needs</p>
             </div>
