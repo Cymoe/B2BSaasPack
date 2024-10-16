@@ -89,37 +89,63 @@ class StripeController extends Controller
             $priceId = $setupIntent->metadata['price_id'];
             $price = \Stripe\Price::retrieve($priceId);
 
-            // Create a PaymentIntent
-            $paymentIntent = \Stripe\PaymentIntent::create([
-                'amount' => $price->unit_amount,
+            \Log::info('Price details', [
+                'price_id' => $priceId,
+                'unit_amount' => $price->unit_amount,
                 'currency' => $price->currency,
-                'customer' => $user->stripe_customer_id,
-                'payment_method' => $setupIntent->payment_method,
-                'off_session' => true,
-                'confirm' => true,
             ]);
 
-            if ($paymentIntent->status === 'succeeded') {
-                $user->has_paid = true;
-                $user->save();
+            // Attach the payment method to the customer
+            $paymentMethod = \Stripe\PaymentMethod::retrieve($setupIntent->payment_method);
+            $paymentMethod->attach(['customer' => $user->stripe_customer_id]);
 
-                // Attach the payment method to the customer for future use
-                $paymentMethod = \Stripe\PaymentMethod::retrieve($setupIntent->payment_method);
-                $paymentMethod->attach(['customer' => $user->stripe_customer_id]);
+            // Set the payment method as the default for the customer
+            \Stripe\Customer::update($user->stripe_customer_id, [
+                'invoice_settings' => ['default_payment_method' => $setupIntent->payment_method],
+            ]);
 
-                \Log::info('Payment successful', [
-                    'user_id' => $user->id,
-                    'session_id' => $sessionId,
-                    'stripe_customer_id' => $user->stripe_customer_id,
-                    'payment_method_id' => $setupIntent->payment_method,
-                ]);
+            // Create an invoice
+            $invoice = \Stripe\Invoice::create([
+                'customer' => $user->stripe_customer_id,
+                'collection_method' => 'charge_automatically',
+                'auto_advance' => false, // Don't finalize the invoice yet
+            ]);
 
-                return redirect()->route('dashboard')->with('success', 'Payment successful! Welcome to the premium area.');
-            } else {
-                throw new \Exception('Payment failed');
-            }
+            // Add invoice item
+            $invoiceItem = \Stripe\InvoiceItem::create([
+                'customer' => $user->stripe_customer_id,
+                'amount' => $price->unit_amount,
+                'currency' => $price->currency,
+                'description' => $price->product->name ?? 'Product Purchase',
+                'invoice' => $invoice->id,
+            ]);
+
+            \Log::info('Invoice item details', [
+                'invoice_item_id' => $invoiceItem->id,
+                'amount' => $invoiceItem->amount,
+                'currency' => $invoiceItem->currency,
+            ]);
+
+            // Finalize the invoice
+            $invoice = $invoice->finalizeInvoice();
+
+            // Pay the invoice
+            $paidInvoice = $invoice->pay(['payment_method' => $setupIntent->payment_method]);
+
+            \Log::info('Invoice details', [
+                'invoice_id' => $paidInvoice->id,
+                'total' => $paidInvoice->total,
+                'amount_due' => $paidInvoice->amount_due,
+                'amount_paid' => $paidInvoice->amount_paid,
+                'status' => $paidInvoice->status,
+            ]);
+
+            $user->has_paid = true;
+            $user->save();
+
+            return redirect()->route('dashboard')->with('success', 'Payment successful! Welcome to the premium area.');
         } catch (\Exception $e) {
-            \Log::error('Payment failed: ' . $e->getMessage());
+            \Log::error('Payment or invoice creation failed: ' . $e->getMessage());
             return redirect()->route('products')->with('error', 'Payment failed. Please try again.');
         }
     }
