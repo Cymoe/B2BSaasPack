@@ -60,15 +60,14 @@ class StripeController extends Controller
             }
 
             $sessionParams = [
-                'payment_method_types' => ['card'],
-                'mode' => 'setup',
                 'customer' => $user->stripe_customer_id,
-                'setup_intent_data' => [
-                    'metadata' => [
-                        'price_id' => $priceId,
-                    ],
-                ],
-                'success_url' => route('success') . '?session_id={CHECKOUT_SESSION_ID}',
+                'payment_method_types' => ['card'],
+                'line_items' => [[
+                    'price' => $priceId,
+                    'quantity' => 1,
+                ]],
+                'mode' => 'payment',
+                'success_url' => route('payment.process') . '?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => route('cancel'),
             ];
 
@@ -217,6 +216,63 @@ class StripeController extends Controller
         } catch (\Exception $e) {
             \Log::error('Failed to retrieve invoices: ' . $e->getMessage());
             return [];
+        }
+    }
+
+    public function processPayment(Request $request)
+    {
+        $sessionId = $request->get('session_id');
+        $user = auth()->user();
+
+        try {
+            $session = \Stripe\Checkout\Session::retrieve($sessionId);
+            $paymentIntent = \Stripe\PaymentIntent::retrieve($session->payment_intent);
+
+            // Check if payment is successful
+            if ($paymentIntent->status === 'succeeded') {
+                // Retrieve the line items from the session
+                $lineItems = \Stripe\Checkout\Session::allLineItems($sessionId);
+                $lineItem = $lineItems->data[0];
+                $priceId = $lineItem->price->id;
+                $quantity = $lineItem->quantity;
+                $unitAmount = $lineItem->price->unit_amount;
+                $currency = $lineItem->price->currency;
+
+                // Create a finalized invoice
+                $invoice = \Stripe\Invoice::create([
+                    'customer' => $user->stripe_customer_id,
+                    'auto_advance' => false, // Prevent automatic finalization
+                    'collection_method' => 'charge_automatically',
+                ]);
+
+                // Add the line item to the invoice
+                \Stripe\InvoiceItem::create([
+                    'customer' => $user->stripe_customer_id,
+                    'price' => $priceId,
+                    'quantity' => $quantity,
+                    'invoice' => $invoice->id,
+                ]);
+
+                // Finalize the invoice
+                $invoice->finalizeInvoice();
+
+                // Mark the invoice as paid
+                $invoice->pay(['paid_out_of_band' => true]);
+
+                // Handle successful payment
+                $user->has_paid = true;
+                $user->save();
+
+                // You may want to create an order or update user's subscription status here
+
+                return redirect()->route('dashboard')->with('success', 'Payment successful! Invoice created. Welcome to the premium area.');
+            } else {
+                // Payment not successful, you might want to handle this case
+                return redirect()->route('products')->with('error', 'Payment was not successful. Please try again.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('Payment processing failed: ' . $e->getMessage());
+            return redirect()->route('products')->with('error', 'Payment processing failed. Please contact support.');
         }
     }
 }

@@ -25,6 +25,7 @@ Route::post('/api/stripe/webhook', [StripeWebhookController::class, 'handleWebho
 Route::get('/billing', [StripeController::class, 'billingPortal'])
     ->name('billing')
     ->middleware('auth');
+Route::get('/payment/process', [StripeController::class, 'processPayment'])->name('payment.process');
 
 require __DIR__.'/auth.php';
 
