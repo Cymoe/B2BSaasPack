@@ -25,17 +25,20 @@ class StripeController extends Controller
                 'limit' => 100,
             ]);
 
-            $formattedProducts = array_map(function ($price) {
-                return [
-                    'id' => $price->id,
-                    'name' => $price->product->name,
-                    'description' => $price->product->description,
-                    'price' => $price->unit_amount / 100,
-                    'currency' => strtoupper($price->currency),
-                ];
-            }, $prices->data);
+            $formattedProducts = array_filter(array_map(function ($price) {
+                if ($price->product->active) {
+                    return [
+                        'id' => $price->id,
+                        'name' => $price->product->name,
+                        'description' => $price->product->description,
+                        'price' => $price->unit_amount / 100,
+                        'currency' => strtoupper($price->currency),
+                    ];
+                }
+                return null;
+            }, $prices->data));
 
-            return view('products', ['products' => $formattedProducts]);
+            return view('products', ['products' => array_values($formattedProducts)]);
         } catch (ApiErrorException $e) {
             \Log::error('Stripe API Error: ' . $e->getMessage());
             return back()->with('error', 'Unable to fetch products. Please try again later.');
