@@ -46,33 +46,33 @@ class StripeController extends Controller
     {
         try {
             $user = auth()->user();
-            $sessionParams = [
-                'payment_method_types' => ['card'],
-                'line_items' => [[
-                    'price' => $priceId,
-                    'quantity' => 1,
-                ]],
-                'mode' => 'payment',
-                'success_url' => route('success') . '?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => route('cancel'),
-            ];
-
-            if ($user->stripe_customer_id) {
-                $sessionParams['customer'] = $user->stripe_customer_id;
-            } else {
-                // Create a new Stripe customer
+            $price = \Stripe\Price::retrieve($priceId);
+            
+            if (!$user->stripe_customer_id) {
                 $stripeCustomer = \Stripe\Customer::create([
                     'email' => $user->email,
                 ]);
                 $user->stripe_customer_id = $stripeCustomer->id;
                 $user->save();
-                $sessionParams['customer'] = $stripeCustomer->id;
             }
 
-            $session = Session::create($sessionParams);
+            $sessionParams = [
+                'payment_method_types' => ['card'],
+                'mode' => 'setup',
+                'customer' => $user->stripe_customer_id,
+                'setup_intent_data' => [
+                    'metadata' => [
+                        'price_id' => $priceId,
+                    ],
+                ],
+                'success_url' => route('success') . '?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => route('cancel'),
+            ];
+
+            $session = \Stripe\Checkout\Session::create($sessionParams);
 
             return redirect($session->url);
-        } catch (ApiErrorException $e) {
+        } catch (\Stripe\Exception\ApiErrorException $e) {
             \Log::error('Stripe API Error: ' . $e->getMessage());
             return back()->with('error', 'Unable to create checkout session. Please try again later.');
         }
@@ -80,21 +80,48 @@ class StripeController extends Controller
 
     public function success(Request $request)
     {
-        $user = auth()->user();
-        $user->has_paid = true;
-
         $sessionId = $request->get('session_id');
+        $user = auth()->user();
 
-        if ($sessionId) {
-            $session = Session::retrieve($sessionId);
-            if (!$user->stripe_customer_id) {
-                $user->stripe_customer_id = $session->customer;
+        try {
+            $session = \Stripe\Checkout\Session::retrieve($sessionId);
+            $setupIntent = \Stripe\SetupIntent::retrieve($session->setup_intent);
+            $priceId = $setupIntent->metadata['price_id'];
+            $price = \Stripe\Price::retrieve($priceId);
+
+            // Create a PaymentIntent
+            $paymentIntent = \Stripe\PaymentIntent::create([
+                'amount' => $price->unit_amount,
+                'currency' => $price->currency,
+                'customer' => $user->stripe_customer_id,
+                'payment_method' => $setupIntent->payment_method,
+                'off_session' => true,
+                'confirm' => true,
+            ]);
+
+            if ($paymentIntent->status === 'succeeded') {
+                $user->has_paid = true;
+                $user->save();
+
+                // Attach the payment method to the customer for future use
+                $paymentMethod = \Stripe\PaymentMethod::retrieve($setupIntent->payment_method);
+                $paymentMethod->attach(['customer' => $user->stripe_customer_id]);
+
+                \Log::info('Payment successful', [
+                    'user_id' => $user->id,
+                    'session_id' => $sessionId,
+                    'stripe_customer_id' => $user->stripe_customer_id,
+                    'payment_method_id' => $setupIntent->payment_method,
+                ]);
+
+                return redirect()->route('dashboard')->with('success', 'Payment successful! Welcome to the premium area.');
+            } else {
+                throw new \Exception('Payment failed');
             }
+        } catch (\Exception $e) {
+            \Log::error('Payment failed: ' . $e->getMessage());
+            return redirect()->route('products')->with('error', 'Payment failed. Please try again.');
         }
-
-        $user->save();
-
-        return redirect()->route('dashboard')->with('success', 'Payment successful! Welcome to the premium area.');
     }
 
     public function cancel()
@@ -141,6 +168,26 @@ class StripeController extends Controller
         } catch (\Exception $e) {
             \Log::error('Failed to create Stripe Billing Portal session: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to create Billing Portal session'], 500);
+        }
+    }
+
+    public function getInvoices()
+    {
+        $user = auth()->user();
+        if (!$user->stripe_customer_id) {
+            return [];
+        }
+
+        try {
+            $invoices = \Stripe\Invoice::all([
+                'customer' => $user->stripe_customer_id,
+                'limit' => 10, // Adjust as needed
+            ]);
+
+            return $invoices->data;
+        } catch (\Exception $e) {
+            \Log::error('Failed to retrieve invoices: ' . $e->getMessage());
+            return [];
         }
     }
 }
