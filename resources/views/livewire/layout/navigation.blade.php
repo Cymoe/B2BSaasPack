@@ -36,6 +36,11 @@ new class extends Component
                 </div>
             </div>
 
+            <!-- Theme Selector -->
+            <div class="hidden sm:flex sm:items-center sm:ms-6 mr-2">
+                <livewire:theme-selector />
+            </div>
+
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
@@ -107,8 +112,10 @@ new class extends Component
                         {{ __('Log Out') }}
                     </x-responsive-nav-link>
                 </button>
+
+                <!-- Theme Selector for mobile -->
+                <livewire:theme-selector />
             </div>
         </div>
     </div>
 </nav>
-

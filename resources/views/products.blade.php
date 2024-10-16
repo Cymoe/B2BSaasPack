@@ -26,6 +26,7 @@
                                     <a href="{{ route('checkout', $product['id']) }}" class="mt-4 inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                                         Buy Now
                                     </a>
+                                    <button class="btn btn-primary">Click me</button>
                                 </div>
                             @endforeach
                         </div>
