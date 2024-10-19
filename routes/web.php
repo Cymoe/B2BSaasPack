@@ -6,8 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 
-Route::view('/', 'welcome')
-    ->middleware(['auth', 'verified']);
+Route::view('/', 'welcome');
 
 Route::middleware(['auth', 'verified', 'paid'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
