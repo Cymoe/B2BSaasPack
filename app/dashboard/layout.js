@@ -9,14 +9,14 @@ export default function DashboardLayout({ children }) {
           <h1 className="text-2xl font-bold">Dashboard</h1>
         </div>
         <ul className="space-y-2 p-4">
-          <li>
+        <li>
             <Link href="/dashboard" className="block py-2 px-4 hover:bg-gray-200">
               Overview
             </Link>
           </li>
-          <li>
-            <Link href="/dashboard/customers" className="block py-2 px-4 hover:bg-gray-200">
-              Customers
+        <li>
+            <Link href="/dashboard/invoices" className="block py-2 px-4 hover:bg-gray-200">
+              Invoices
             </Link>
           </li>
           <li>
@@ -25,8 +25,8 @@ export default function DashboardLayout({ children }) {
             </Link>
           </li>
           <li>
-            <Link href="/dashboard/invoices" className="block py-2 px-4 hover:bg-gray-200">
-              Invoices
+            <Link href="/dashboard/customers" className="block py-2 px-4 hover:bg-gray-200">
+              Customers
             </Link>
           </li>
         </ul>

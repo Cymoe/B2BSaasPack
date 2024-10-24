@@ -11,8 +11,16 @@ const productSchema = new mongoose.Schema({
     required: true,
     min: 0,
   },
+  category: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+  },
   // Add any other fields you need for products
 }, { timestamps: true });
 
+productSchema.set('strictPopulate', false);
 
-export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+// Clear the model from the cache if it exists
+mongoose.models = {};
+
+export const Product = mongoose.model('Product', productSchema);
